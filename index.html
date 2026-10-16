@@ -1,0 +1,2074 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#1B1F26">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Scansiona e invia</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="apple-touch-icon" href="icon.svg">
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --stage:#1B1F26;
+  --raised:#242A33;
+  --raised-2:#2E353F;
+  --line:#3A424E;
+  --paper:#F6F4EF;
+  --ink:#141922;
+  --text:#E9ECF1;
+  --muted:#9BA5B4;
+  --send:#F2C230;
+  --send-ink:#2B2300;
+  --danger:#E2614A;
+}
+html,body{margin:0;padding:0;height:100%}
+body{
+  background:var(--stage);color:var(--text);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:16px;line-height:1.45;
+  overscroll-behavior:none;
+  -webkit-user-select:none;user-select:none;
+}
+input,textarea{-webkit-user-select:text;user-select:text}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+:focus-visible{outline:2px solid var(--send);outline-offset:2px}
+
+#app{display:flex;flex-direction:column;height:100dvh;min-height:100dvh}
+
+/* ---- header ---- */
+header{
+  display:flex;align-items:center;gap:10px;
+  padding:calc(10px + env(safe-area-inset-top)) 14px 10px;
+  border-bottom:1px solid var(--line);flex:0 0 auto;
+}
+header h1{
+  margin:0;font-size:17px;font-weight:700;letter-spacing:-.015em;flex:1;
+}
+header .count{
+  font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;
+}
+.iconbtn{
+  width:40px;height:40px;border-radius:50%;display:grid;place-items:center;
+  color:var(--muted);
+}
+.iconbtn:active{background:var(--raised)}
+.iconbtn svg{width:21px;height:21px;display:block}
+
+/* ---- main ---- */
+main{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 14px 8px}
+
+/* ---- empty state ---- */
+.empty{
+  height:100%;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;text-align:center;gap:0;padding-bottom:6vh;
+  cursor:pointer;
+}
+/* tutta la schermata iniziale apre il mirino: l'otturatore reagisce al tocco
+   anche quando il dito cade lontano da lì, così si capisce che fa da pulsante */
+.empty.press .shutter{transform:scale(.94)}
+.shutter{
+  width:124px;height:124px;border-radius:50%;
+  border:2px solid var(--send);
+  display:grid;place-items:center;background:var(--raised);
+  box-shadow:0 0 0 10px rgba(242,194,48,.07);
+  transition:transform .12s ease;
+}
+.shutter:active{transform:scale(.94)}
+.shutter svg{width:46px;height:46px;color:var(--send)}
+.empty h2{margin:26px 0 6px;font-size:20px;font-weight:700;letter-spacing:-.02em}
+.empty p{margin:0;color:var(--muted);font-size:14.5px;max-width:27ch}
+.empty .alt{margin-top:22px;font-size:14.5px;color:var(--send);padding:10px 14px}
+
+/* ---- sheets ---- */
+.sheets{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:16px;margin:0}
+.sheet{
+  position:relative;background:var(--paper);border-radius:2px;
+  box-shadow:0 1px 0 rgba(0,0,0,.4),0 12px 24px -14px rgba(0,0,0,.75);
+  overflow:hidden;aspect-ratio:1/1.414;display:block;width:100%;padding:0;
+}
+.sheet img{width:100%;height:100%;object-fit:contain;object-position:center;display:block;background:var(--paper)}
+.sheet.pending{display:grid;place-items:center}
+.sheet.pending span{font-size:12.5px;color:#6B7280}
+.sheet .num{
+  position:absolute;left:0;bottom:0;background:var(--ink);color:#fff;
+  font-size:11.5px;font-weight:700;font-variant-numeric:tabular-nums;
+  padding:3px 8px;border-top-right-radius:2px;letter-spacing:.02em;
+}
+.sheet .kill{
+  position:absolute;top:5px;right:5px;width:30px;height:30px;border-radius:50%;
+  background:rgba(20,25,34,.72);display:grid;place-items:center;
+}
+.sheet .kill svg{width:14px;height:14px;color:#fff}
+.slot{
+  aspect-ratio:1/1.414;border:1.5px dashed var(--line);border-radius:2px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:8px;color:var(--muted);font-size:13px;width:100%;
+}
+.slot:active{background:var(--raised)}
+.slot svg{width:26px;height:26px}
+
+/* ---- bottom bar ---- */
+footer{
+  flex:0 0 auto;border-top:1px solid var(--line);background:var(--stage);
+  padding:12px 14px calc(12px + env(safe-area-inset-bottom));
+}
+.fileline{display:flex;align-items:baseline;gap:8px;margin-bottom:12px}
+.fileline label{font-size:12.5px;color:var(--muted);flex:0 0 auto}
+.fileline input{
+  flex:1;min-width:0;background:none;border:0;border-bottom:1px solid var(--line);
+  color:var(--text);font-size:14.5px;padding:3px 0;
+}
+.fileline input:focus{outline:none;border-bottom-color:var(--send)}
+.fileline .ext{font-size:13px;color:var(--muted)}
+.sendrow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.send{
+  border-radius:11px;padding:11px 10px;text-align:left;
+  display:flex;align-items:center;gap:9px;min-height:56px;
+}
+.send .glyph{width:22px;height:22px;flex:0 0 auto}
+.send .t{min-width:0}
+.send .t b{display:block;font-size:15px;font-weight:700;line-height:1.15}
+.send .t small{display:block;font-size:11.5px;line-height:1.3;opacity:.7;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.send.primary{background:var(--send);color:var(--send-ink)}
+.send.secondary{background:var(--raised);color:var(--text);box-shadow:inset 0 0 0 1px var(--line)}
+.send:active{transform:scale(.985)}
+.send[disabled]{opacity:.38;transform:none}
+.savelink{
+  display:block;width:100%;text-align:center;margin-top:10px;
+  font-size:13.5px;color:var(--muted);padding:6px;
+}
+
+/* ---- overlays ---- */
+.overlay{
+  position:fixed;inset:0;z-index:40;background:#14181F;
+  display:flex;flex-direction:column;
+}
+.overlay[hidden]{display:none}
+.obar{
+  display:flex;align-items:center;gap:6px;flex:0 0 auto;
+  padding:calc(8px + env(safe-area-inset-top)) 8px 8px;
+}
+.obar .title{flex:1;font-size:16px;font-weight:700;padding-left:6px;letter-spacing:-.01em}
+.obar .txt{padding:9px 13px;font-size:15px;border-radius:9px;color:var(--muted)}
+.obar .txt.go{color:var(--send);font-weight:700}
+.obar .txt:active{background:var(--raised)}
+
+/* ---- mirino ---- */
+#camStage{flex:1 1 auto;position:relative;overflow:hidden;background:#000;touch-action:none}
+#camVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+#camOverlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+#camFlash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
+#camFlash.on{animation:fl .34s ease-out}
+@keyframes fl{from{opacity:.9}to{opacity:0}}
+#camHint{
+  position:absolute;left:50%;bottom:14px;transform:translateX(-50%);
+  background:rgba(14,17,22,.74);color:#fff;font-size:13px;line-height:1.3;
+  padding:7px 14px;border-radius:999px;max-width:92%;text-align:center;
+}
+.camtools{
+  flex:0 0 auto;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
+  gap:10px;padding:14px 18px calc(16px + env(safe-area-inset-bottom));
+}
+#camGallery{text-align:left}
+#camTorch{text-align:right}
+.camside{font-size:13.5px;color:var(--muted);padding:12px 2px}
+.bigshutter{
+  width:72px;height:72px;border-radius:50%;background:var(--send);
+  box-shadow:0 0 0 4px rgba(242,194,48,.2);transition:transform .1s ease;
+}
+.bigshutter:active{transform:scale(.92)}
+.bigshutter[disabled]{opacity:.45;transform:none}
+
+/* ---- editor ---- */
+#stage{flex:1 1 auto;position:relative;overflow:hidden;touch-action:none;background:#0E1116}
+#stage canvas{position:absolute;left:0;top:0;transform-origin:0 0}
+.handle{
+  position:absolute;width:40px;height:40px;margin:-20px 0 0 -20px;
+  border-radius:50%;display:grid;place-items:center;
+}
+.handle::after{
+  content:"";width:17px;height:17px;border-radius:50%;
+  background:var(--send);box-shadow:0 0 0 3px rgba(20,24,31,.8);
+}
+.handle.hot::after{transform:scale(1.25)}
+.etools{flex:0 0 auto;padding:10px 0 calc(10px + env(safe-area-inset-bottom))}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:0 14px 12px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{
+  flex:0 0 auto;padding:8px 15px;border-radius:999px;font-size:14px;
+  box-shadow:inset 0 0 0 1px var(--line);color:var(--muted);white-space:nowrap;
+}
+.chip[aria-pressed="true"]{background:var(--paper);color:var(--ink);font-weight:700;box-shadow:none}
+.erow{display:flex;gap:8px;padding:0 14px}
+.erow button{
+  flex:1;padding:11px 8px;border-radius:10px;font-size:14px;
+  box-shadow:inset 0 0 0 1px var(--line);color:var(--text);
+  display:flex;align-items:center;justify-content:center;gap:7px;
+}
+.erow button svg{width:17px;height:17px}
+.erow button:active{background:var(--raised)}
+.erow button[disabled]{opacity:.35}
+.erow button[disabled]:active{background:none}
+
+/* ---- preview ---- */
+#pvwrap{flex:1 1 auto;display:grid;place-items:center;padding:12px;overflow:auto}
+#pvwrap img{max-width:100%;max-height:100%;background:var(--paper);
+  box-shadow:0 14px 34px -18px rgba(0,0,0,.9)}
+
+/* ---- settings ---- */
+.form{flex:1 1 auto;overflow-y:auto;padding:4px 16px calc(24px + env(safe-area-inset-bottom))}
+.field{margin:0 0 20px}
+.field label{display:block;font-size:13.5px;color:var(--muted);margin-bottom:6px}
+.field input[type=text],.field input[type=email],.field input[type=tel],.field select{
+  width:100%;background:var(--raised);border:0;box-shadow:inset 0 0 0 1px var(--line);
+  border-radius:10px;padding:12px;color:var(--text);font-size:15.5px;
+}
+.field input:focus,.field select:focus{outline:none;box-shadow:inset 0 0 0 1.5px var(--send)}
+.field .hint{font-size:12.5px;color:var(--muted);margin-top:6px;line-height:1.4}
+.seg{display:flex;gap:8px}
+.seg button{
+  flex:1;padding:11px;border-radius:10px;font-size:14.5px;
+  box-shadow:inset 0 0 0 1px var(--line);color:var(--muted);
+}
+.seg button[aria-pressed="true"]{background:var(--paper);color:var(--ink);font-weight:700;box-shadow:none}
+.check{display:flex;align-items:flex-start;gap:11px;margin:0 0 20px}
+.check input{width:21px;height:21px;margin:1px 0 0;accent-color:var(--send);flex:0 0 auto}
+.check span{font-size:14.5px}
+.check small{display:block;color:var(--muted);font-size:12.5px;margin-top:3px}
+.note{
+  border-left:2px solid var(--line);padding:2px 0 2px 13px;margin:0 0 22px;
+  font-size:13px;color:var(--muted);line-height:1.5;
+}
+
+/* ---- busy + toast ---- */
+#busy{
+  position:fixed;inset:0;z-index:60;background:rgba(20,24,31,.82);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+}
+#busy[hidden]{display:none}
+.spin{
+  width:34px;height:34px;border-radius:50%;
+  border:2.5px solid rgba(242,194,48,.25);border-top-color:var(--send);
+  animation:sp .8s linear infinite;
+}
+@keyframes sp{to{transform:rotate(360deg)}}
+#busy span{font-size:14.5px;color:var(--text)}
+#toast{
+  position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom));
+  transform:translateX(-50%);z-index:70;max-width:88vw;
+  background:var(--paper);color:var(--ink);font-size:14px;font-weight:500;
+  padding:11px 16px;border-radius:999px;box-shadow:0 10px 30px -10px rgba(0,0,0,.8);
+  text-align:center;
+}
+#toast[hidden]{display:none}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.001ms!important;transition-duration:.001ms!important}
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header>
+    <h1>Scansiona e invia</h1>
+    <span class="count" id="count"></span>
+    <button class="iconbtn" id="btnSettings" aria-label="Impostazioni">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3.2"/>
+        <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 8.9 19.3a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.7 8.9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9.06 4.6 1.7 1.7 0 0 0 10.1 3.04V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87V9a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1.03z"/>
+      </svg>
+    </button>
+  </header>
+
+  <main id="main"></main>
+
+  <footer id="footer" hidden>
+    <div class="fileline">
+      <label for="fname">Nome</label>
+      <input id="fname" type="text" autocomplete="off" spellcheck="false">
+      <span class="ext">.pdf</span>
+    </div>
+    <div class="sendrow" id="sendrow"></div>
+    <button class="savelink" id="btnSave">Salva il PDF sul telefono</button>
+  </footer>
+</div>
+
+<!-- mirino -->
+<div class="overlay" id="camera" hidden>
+  <div class="obar">
+    <button class="txt" id="camClose">Chiudi</button>
+    <span class="title">Inquadra il foglio</span>
+    <button class="txt go" id="camDone">Fatto</button>
+  </div>
+  <div id="camStage">
+    <video id="camVideo" playsinline autoplay muted></video>
+    <canvas id="camOverlay"></canvas>
+    <div id="camFlash"></div>
+    <div id="camHint">Attivo la fotocamera…</div>
+  </div>
+  <div class="camtools">
+    <button class="camside" id="camGallery">Galleria</button>
+    <button class="bigshutter" id="camShoot" aria-label="Scatta la foto"></button>
+    <button class="camside" id="camTorch" hidden>Luce</button>
+  </div>
+</div>
+
+<!-- editor -->
+<div class="overlay" id="editor" hidden>
+  <div class="obar">
+    <button class="txt" id="edCancel">Annulla</button>
+    <span class="title" id="edTitle">Pagina</span>
+    <button class="txt go" id="edDone">Fatto</button>
+  </div>
+  <div id="stage"></div>
+  <div class="etools">
+    <div class="chips" id="chips"></div>
+    <div class="erow">
+      <button id="edRotate">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3.2-6.9"/><path d="M21 3.5V9h-5.5"/></svg>
+        Ruota
+      </button>
+      <button id="edAll">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="1.5"/></svg>
+        Tutta la foto
+      </button>
+      <button id="edAuto">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8V5.5A2.5 2.5 0 0 1 5.5 3H8"/><path d="M16 3h2.5A2.5 2.5 0 0 1 21 5.5V8"/><path d="M21 16v2.5A2.5 2.5 0 0 1 18.5 21H16"/><path d="M8 21H5.5A2.5 2.5 0 0 1 3 18.5V16"/></svg>
+        Ritrova bordi
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- preview -->
+<div class="overlay" id="preview" hidden>
+  <div class="obar">
+    <button class="txt" id="pvClose">Chiudi</button>
+    <span class="title" id="pvTitle">Pagina</span>
+    <button class="txt go" id="pvEdit">Modifica</button>
+  </div>
+  <div id="pvwrap"><img id="pvImg" alt=""></div>
+  <div class="etools">
+    <div class="erow">
+      <button id="pvPrev">Sposta prima</button>
+      <button id="pvNext">Sposta dopo</button>
+      <button id="pvDel">Elimina</button>
+    </div>
+  </div>
+</div>
+
+<!-- settings -->
+<div class="overlay" id="settings" hidden>
+  <div class="obar">
+    <button class="txt" id="stClose">Chiudi</button>
+    <span class="title">Impostazioni</span>
+    <button class="txt go" id="stSave">Salva</button>
+  </div>
+  <div class="form">
+    <div class="field">
+      <label for="stName">Come si chiama il destinatario</label>
+      <input id="stName" type="text" placeholder="Es. Ufficio amministrazione" autocomplete="off">
+      <div class="hint">Serve solo per riconoscere i pulsanti di invio a colpo d'occhio.</div>
+    </div>
+    <div class="field">
+      <label for="stMail">Indirizzo mail predefinito</label>
+      <input id="stMail" type="email" placeholder="nome@azienda.it" autocomplete="off" inputmode="email">
+    </div>
+    <div class="field">
+      <label for="stPhone">Numero WhatsApp predefinito</label>
+      <input id="stPhone" type="tel" placeholder="+39 333 1234567" autocomplete="off" inputmode="tel">
+    </div>
+    <div class="field">
+      <label>Canale che usi più spesso</label>
+      <div class="seg" id="stChannel">
+        <button type="button" data-ch="mail">Mail</button>
+        <button type="button" data-ch="wa">WhatsApp</button>
+      </div>
+      <div class="hint">Quello scelto diventa il pulsante giallo, in prima posizione.</div>
+    </div>
+    <div class="check">
+      <input id="stCopy" type="checkbox">
+      <label for="stCopy"><span>Copia il destinatario negli appunti
+        <small>Android non permette di compilare da solo il campo destinatario quando allega un file. Copiandolo, ti basta un incollo nell'app che si apre.</small>
+      </span></label>
+    </div>
+    <div class="field">
+      <label for="stSubject">Oggetto della mail</label>
+      <input id="stSubject" type="text" placeholder="Documento scansionato" autocomplete="off">
+    </div>
+    <div class="field">
+      <label for="stPrefix">Inizio del nome file</label>
+      <input id="stPrefix" type="text" placeholder="Scansione" autocomplete="off">
+      <div class="hint">Al nome vengono aggiunti data e ora, così i file non si sovrascrivono.</div>
+    </div>
+    <div class="field">
+      <label for="stQuality">Qualità del PDF</label>
+      <select id="stQuality">
+        <option value="low">Leggera, 1700 px di lato lungo</option>
+        <option value="mid">Equilibrata, 2250 px, circa 190 dpi su A4</option>
+        <option value="high">Alta, 2900 px, per stampa e timbri</option>
+      </select>
+      <div class="hint">Più risoluzione vuol dire testo più nitido e file più pesante. Scendi a Leggera se la posta aziendale rifiuta allegati grossi.</div>
+    </div>
+    <p class="note">Le pagine restano solo in memoria fino all'invio: niente archivio sul telefono, niente copia su Drive. Chiudendo l'app le scansioni non inviate si perdono.</p>
+  </div>
+</div>
+
+<div id="busy" hidden><div class="spin"></div><span id="busyText">Un momento…</span></div>
+<div id="toast" hidden></div>
+
+<input type="file" id="fileCam" accept="image/*" capture="environment" multiple hidden>
+<input type="file" id="filePick" accept="image/*" multiple hidden>
+
+<script>
+"use strict";
+
+/* ==========================================================================
+   1. Utility
+   ========================================================================== */
+const $ = s => document.querySelector(s);
+const el = (t, cls) => { const n = document.createElement(t); if (cls) n.className = cls; return n; };
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+
+let toastTimer = 0;
+function toast(msg, ms) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.hidden = true; }, ms || 2600);
+}
+function busy(text) {
+  $('#busyText').textContent = text || 'Un momento…';
+  $('#busy').hidden = false;
+}
+function idle() { $('#busy').hidden = true; }
+const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
+
+/* ==========================================================================
+   2. Impostazioni
+   ========================================================================== */
+const SKEY = 'scansiona-e-invia.v1';
+// lato lungo della pagina finale e qualità JPEG per ciascun livello
+const LEVELS = {
+  low:  { out: 1700, jpeg: 0.74 },   // ~145 punti per pollice su A4
+  mid:  { out: 2250, jpeg: 0.86 },   // ~190 dpi
+  high: { out: 2900, jpeg: 0.94 }    // ~245 dpi
+};
+const defaults = {
+  contactName: '', email: '', phone: '', channel: 'mail',
+  copyRecipient: true, subject: 'Documento scansionato',
+  prefix: 'Scansione', level: 'mid'
+};
+let S = Object.assign({}, defaults);
+try {
+  const raw = localStorage.getItem(SKEY);
+  if (raw) S = Object.assign(S, JSON.parse(raw));
+} catch (e) { /* localStorage non disponibile: si usano i valori di default */ }
+if (!LEVELS[S.level]) {
+  // impostazioni salvate dalla versione precedente, che aveva solo la qualità JPEG
+  const q = parseFloat(S.quality);
+  S.level = !isFinite(q) ? 'mid' : q <= 0.76 ? 'low' : q >= 0.90 ? 'high' : 'mid';
+}
+const outMax = () => LEVELS[S.level].out;
+const jpegQ = () => LEVELS[S.level].jpeg;
+function saveSettings() {
+  try { localStorage.setItem(SKEY, JSON.stringify(S)); } catch (e) {}
+}
+
+/* ==========================================================================
+   3. Immagini: caricamento e canvas di lavoro
+   ========================================================================== */
+// La foto di partenza si tiene grande: il raddrizzamento campiona da lì, e
+// partire più grandi dell'uscita evita sia la sfocatura sia l'aliasing.
+const SRC_MAX = 3200;
+
+async function decodeFile(file) {
+  if (window.createImageBitmap) {
+    try { return await createImageBitmap(file, { imageOrientation: 'from-image' }); }
+    catch (e) { /* ritenta sotto con <img> */ }
+  }
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.decoding = 'sync';
+    await new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error('decode')); img.src = url; });
+    return img;
+  } finally { setTimeout(() => URL.revokeObjectURL(url), 4000); }
+}
+
+function toWorkCanvas(src, max) {
+  const w0 = src.width || src.naturalWidth, h0 = src.height || src.naturalHeight;
+  const s = Math.min(1, max / Math.max(w0, h0));
+  const c = el('canvas');
+  c.width = Math.max(1, Math.round(w0 * s));
+  c.height = Math.max(1, Math.round(h0 * s));
+  const g = c.getContext('2d');
+  g.imageSmoothingQuality = 'high';
+  g.drawImage(src, 0, 0, c.width, c.height);
+  if (src.close) src.close();
+  return c;
+}
+
+function canvasToBlob(c, type, q) {
+  return new Promise(res => c.toBlob(res, type, q));
+}
+async function canvasToBytes(c, q) {
+  const b = await canvasToBlob(c, 'image/jpeg', q);
+  return new Uint8Array(await b.arrayBuffer());
+}
+async function canvasOf(blob) {
+  const bmp = await decodeFile(blob);
+  const c = el('canvas');
+  c.width = bmp.width || bmp.naturalWidth;
+  c.height = bmp.height || bmp.naturalHeight;
+  c.getContext('2d').drawImage(bmp, 0, 0);
+  if (bmp.close) bmp.close();
+  return c;
+}
+
+/* ==========================================================================
+   4. Rilevamento automatico del foglio
+   Il foglio è quasi sempre la macchia chiara più grande su uno sfondo più
+   scuro: soglia di Otsu, componente connessa maggiore, quattro vertici
+   estremi. Se il risultato non è plausibile si tiene tutta la foto.
+   ========================================================================== */
+function otsu(hist, total) {
+  let sum = 0;
+  for (let i = 0; i < 256; i++) sum += i * hist[i];
+  let sumB = 0, wB = 0, best = 0, th = 127;
+  for (let t = 0; t < 256; t++) {
+    wB += hist[t];
+    if (!wB) continue;
+    const wF = total - wB;
+    if (!wF) break;
+    sumB += t * hist[t];
+    const mB = sumB / wB, mF = (sum - sumB) / wF;
+    const v = wB * wF * (mB - mF) * (mB - mF);
+    if (v > best) { best = v; th = t; }
+  }
+  return th;
+}
+
+function fullQuad(w, h) {
+  return [[0, 0], [w, 0], [w, h], [0, h]];
+}
+
+function quadArea(q) {
+  let a = 0;
+  for (let i = 0; i < 4; i++) {
+    const p = q[i], n = q[(i + 1) % 4];
+    a += p[0] * n[1] - n[0] * p[1];
+  }
+  return Math.abs(a) / 2;
+}
+
+// --- geometria di servizio -------------------------------------------------
+function orderQuad(pts) {
+  let cx = 0, cy = 0;
+  for (const p of pts) { cx += p[0] / 4; cy += p[1] / 4; }
+  const s = pts.slice().sort((a, b) =>
+    Math.atan2(a[1] - cy, a[0] - cx) - Math.atan2(b[1] - cy, b[0] - cx));
+  let k = 0, best = Infinity;
+  for (let i = 0; i < 4; i++) {
+    const v = s[i][0] + s[i][1];
+    if (v < best) { best = v; k = i; }
+  }
+  const q = [s[k], s[(k + 1) % 4], s[(k + 2) % 4], s[(k + 3) % 4]];
+  let a = 0;
+  for (let i = 0; i < 4; i++) {
+    const p = q[i], n = q[(i + 1) % 4];
+    a += p[0] * n[1] - n[0] * p[1];
+  }
+  if (a < 0) { const r = [q[0], q[3], q[2], q[1]]; return r; }
+  return q;
+}
+
+// Le soglie sono larghe di proposito: uno scontrino è stretto e lungo, e
+// misure pensate per un A4 lo escluderebbero per costruzione. Il rischio di
+// qualche falso riquadro è preferibile a nessun riquadro, perché il punteggio
+// premia comunque il quadrilatero più ampio e tu puoi sempre reinquadrare.
+function validQuad(q, W, H) {
+  if (!q) return false;
+  for (const p of q) if (!isFinite(p[0]) || !isFinite(p[1])) return false;
+  const area = quadArea(q);
+  if (!(area > 0.03 * W * H) || area > 0.995 * W * H) return false;
+  const minSide = 0.07 * Math.min(W, H);
+  const marg = 0.06 * Math.max(W, H);
+  for (let i = 0; i < 4; i++) {
+    const a = q[i], b = q[(i + 1) % 4], c = q[(i + 2) % 4];
+    const e1 = [b[0] - a[0], b[1] - a[1]], e2 = [c[0] - b[0], c[1] - b[1]];
+    const l1 = Math.hypot(e1[0], e1[1]), l2 = Math.hypot(e2[0], e2[1]);
+    if (l1 < minSide) return false;
+    // angoli interni tra 44° e 136°: niente quadrilateri schiacciati
+    const cos = (e1[0] * e2[0] + e1[1] * e2[1]) / (l1 * l2);
+    if (Math.abs(cos) > 0.72) return false;
+    // i vertici non devono finire tutti fuori dall'inquadratura
+    if (a[0] < -marg || a[1] < -marg || a[0] > W + marg || a[1] > H + marg) return false;
+  }
+  return true;
+}
+
+// --- 4a. contorni: Sobel + Hough guidata dal gradiente --------------------
+// Metodo principale. Guarda i salti di luminosità, non il livello assoluto,
+// quindi un piano illuminato a sbieco non viene più confuso con la carta.
+function grayFrame(canvas, w, h) {
+  const t = el('canvas'); t.width = w; t.height = h;
+  const tc = t.getContext('2d');
+  tc.imageSmoothingQuality = 'high';
+  tc.drawImage(canvas, 0, 0, w, h);
+  const d = tc.getImageData(0, 0, w, h).data;
+  const raw = new Uint8ClampedArray(w * h);
+  for (let i = 0, p = 0; p < raw.length; i += 4, p++) {
+    raw[p] = (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000;
+  }
+  // sfocatura 3x3 separabile: toglie il rumore del sensore senza mangiare i bordi
+  const tmp = new Uint8ClampedArray(w * h), out = new Uint8ClampedArray(w * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const p = y * w + x;
+      const a = raw[p - (x > 0 ? 1 : 0)], b = raw[p], c = raw[p + (x < w - 1 ? 1 : 0)];
+      tmp[p] = (a + 2 * b + c) / 4;
+    }
+  }
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const p = y * w + x;
+      const a = tmp[p - (y > 0 ? w : 0)], b = tmp[p], c = tmp[p + (y < h - 1 ? w : 0)];
+      out[p] = (a + 2 * b + c) / 4;
+    }
+  }
+  return out;
+}
+
+function quadByEdges(g, w, h) {
+  const n = w * h;
+  const mag = new Float32Array(n), ang = new Float32Array(n);
+  let maxMag = 0;
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const p = y * w + x;
+      const gx = (g[p - w + 1] + 2 * g[p + 1] + g[p + w + 1]) - (g[p - w - 1] + 2 * g[p - 1] + g[p + w - 1]);
+      const gy = (g[p + w - 1] + 2 * g[p + w] + g[p + w + 1]) - (g[p - w - 1] + 2 * g[p - w] + g[p - w + 1]);
+      const m = Math.sqrt(gx * gx + gy * gy);
+      mag[p] = m;
+      ang[p] = Math.atan2(gy, gx);
+      if (m > maxMag) maxMag = m;
+    }
+  }
+  if (maxMag < 40) return null;              // scena piatta: nessun bordo
+
+  // soglia sul 10% dei contorni più forti
+  const bins = new Uint32Array(257);
+  for (let p = 0; p < n; p++) if (mag[p] > 0) bins[(mag[p] / maxMag * 256) | 0]++;
+  let tot = 0;
+  for (let i = 0; i <= 256; i++) tot += bins[i];
+  let want = tot * 0.10, acc = 0, cut = 256;
+  for (let i = 256; i >= 0; i--) { acc += bins[i]; if (acc >= want) { cut = i; break; } }
+  const thMag = Math.max(24, cut / 256 * maxMag);
+
+  // accumulatore di Hough: theta in [0,180), rho a passo 2 px
+  const NT = 180, D = Math.hypot(w, h), NR = Math.ceil(D) + 1;
+  const acc2 = new Float32Array(NT * NR);
+  const cosT = new Float32Array(NT), sinT = new Float32Array(NT);
+  for (let t = 0; t < NT; t++) {
+    const a = t * Math.PI / NT;
+    cosT[t] = Math.cos(a); sinT[t] = Math.sin(a);
+  }
+  // Vota solo chi separa due materiali, non chi è semplicemente un contorno.
+  // Le righe di testo sono contorni lunghi, netti e paralleli ai bordi del
+  // foglio: senza questa prova verrebbero prese per il bordo della pagina.
+  // Il salto di luminosità misurato a cinque pixel di distanza da una parte e
+  // dall'altra è grande sul bordo carta/tavolo e quasi nullo su una riga di
+  // testo, che ha carta su entrambi i lati.
+  const BIAS = 5;
+  let votes = 0;
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const p = y * w + x;
+      const m = mag[p];
+      if (m < thMag) continue;
+      const a0 = ang[p];
+      const nx = Math.cos(a0), ny = Math.sin(a0);
+      const xa = clamp(Math.round(x + BIAS * nx), 0, w - 1);
+      const ya = clamp(Math.round(y + BIAS * ny), 0, h - 1);
+      const xb = clamp(Math.round(x - BIAS * nx), 0, w - 1);
+      const yb = clamp(Math.round(y - BIAS * ny), 0, h - 1);
+      const step = Math.abs(g[ya * w + xa] - g[yb * w + xb]);
+      if (step < 13) continue;
+      votes++;
+      // la normale al bordo dà già l'orientamento: si vota solo lì intorno
+      let a = a0;
+      if (a < 0) a += Math.PI;
+      const t0 = Math.round(a / Math.PI * NT) % NT;
+      for (let dt = -2; dt <= 2; dt++) {
+        const t = (t0 + dt + NT) % NT;
+        const r = Math.round((x * cosT[t] + y * sinT[t] + D) / 2);
+        if (r >= 0 && r < NR) acc2[t * NR + r] += step;
+      }
+    }
+  }
+  if (votes < Math.min(w, h) * 0.8) return null;
+
+  // massimi locali dell'accumulatore
+  let peak = 0;
+  for (let i = 0; i < acc2.length; i++) if (acc2[i] > peak) peak = acc2[i];
+  if (peak <= 0) return null;
+  const cands = [];
+  for (let t = 0; t < NT; t++) {
+    for (let r = 1; r < NR - 1; r++) {
+      const v = acc2[t * NR + r];
+      // soglia bassa: i lati corti di uno scontrino raccolgono pochi voti
+      // rispetto ai suoi lati lunghi, e andrebbero perduti
+      if (v < peak * 0.08) continue;
+      let isMax = true;
+      for (let dt = -3; dt <= 3 && isMax; dt++) {
+        for (let dr = -3; dr <= 3; dr++) {
+          if (!dt && !dr) continue;
+          const tt = (t + dt + NT) % NT, rr = r + dr;
+          if (rr < 0 || rr >= NR) continue;
+          if (acc2[tt * NR + rr] > v) { isMax = false; break; }
+        }
+      }
+      if (!isMax) continue;
+      // Affinamento sotto la cella: l'accumulatore è quantizzato a un grado e
+      // due pixel, e il massimo salta da una cella all'altra a ogni
+      // fotogramma. La parabola per i tre valori adiacenti dà il vertice con
+      // precisione migliore della cella, ed è questo che ferma il riquadro.
+      let dr = 0, dth = 0;
+      const vm = acc2[t * NR + r - 1], vp = acc2[t * NR + r + 1];
+      const denR = vp + vm - 2 * v;
+      if (denR < -1e-6) dr = clamp((vm - vp) / (2 * denR), -0.5, 0.5);
+      const tm = acc2[((t - 1 + NT) % NT) * NR + r];
+      const tp = acc2[((t + 1) % NT) * NR + r];
+      const denT = tp + tm - 2 * v;
+      if (denT < -1e-6) dth = clamp((tm - tp) / (2 * denT), -0.5, 0.5);
+      const ang2 = (t + dth) * Math.PI / NT;
+      cands.push({ t, r, v, c: Math.cos(ang2), s: Math.sin(ang2), rho: (r + dr) * 2 - D });
+    }
+  }
+  if (cands.length < 4) return null;
+  cands.sort((a, b) => b.v - a.v);
+  const top = cands.slice(0, 18);
+
+  // coppie di rette quasi parallele e ben separate: i due lati opposti
+  const dTheta = (a, b) => {
+    let d = Math.abs(a.t - b.t) % NT;
+    return Math.min(d, NT - d);
+  };
+  // distanza minima fra due lati opposti: per i bordi lunghi di uno scontrino
+  // questa distanza è la sua larghezza, che è poca cosa
+  const minGap = 0.07 * Math.min(w, h);
+  const pairs = [];
+  for (let i = 0; i < top.length; i++) {
+    for (let j = i + 1; j < top.length; j++) {
+      const A = top[i], B = top[j];
+      if (dTheta(A, B) > 20) continue;
+      if (Math.abs(A.rho - B.rho) < minGap) continue;
+      // l'angolo è ciclico: B va srotolato rispetto ad A prima di mediare,
+      // altrimenti una coppia a cavallo dello zero dà un angolo assurdo
+      let tb = B.t;
+      if (tb - A.t > NT / 2) tb -= NT;
+      else if (A.t - tb > NT / 2) tb += NT;
+      pairs.push({ a: A, b: B, v: A.v + B.v, t: ((A.t + tb) / 2 + NT) % NT });
+    }
+  }
+  if (pairs.length < 2) return null;
+  pairs.sort((x, y) => y.v - x.v);
+  const P = pairs.slice(0, 10);
+
+  const cross = (L1, L2) => {
+    const det = L1.c * L2.s - L1.s * L2.c;
+    if (Math.abs(det) < 1e-6) return null;
+    return [(L1.rho * L2.s - L1.s * L2.rho) / det, (L1.c * L2.rho - L1.rho * L2.c) / det];
+  };
+
+  let bestQ = null, bestScore = -1;
+  for (let i = 0; i < P.length; i++) {
+    for (let j = 0; j < P.length; j++) {
+      if (i === j) continue;
+      const u = P[i], v = P[j];
+      let d = Math.abs(u.t - v.t) % NT;
+      d = Math.min(d, NT - d);
+      if (d < 55 || d > 125) continue;          // le due coppie devono incrociarsi
+      const c1 = cross(u.a, v.a), c2 = cross(u.a, v.b);
+      const c3 = cross(u.b, v.b), c4 = cross(u.b, v.a);
+      if (!c1 || !c2 || !c3 || !c4) continue;
+      const q = orderQuad([c1, c2, c3, c4]);
+      if (!validQuad(q, w, h)) continue;
+      const score = (u.v + v.v) * (0.45 + quadArea(q) / (w * h));
+      if (score > bestScore) { bestScore = score; bestQ = q; }
+    }
+  }
+  return bestQ;
+}
+
+// --- 4b. ripiego: macchia chiara più grande ------------------------------
+// Serve quando i bordi sono poco contrastati. Il controllo di riempimento
+// scarta il caso in cui la macchia sborda sul piano illuminato.
+function quadByBlob(g, w, h) {
+  const n = w * h;
+  const hist = new Uint32Array(256);
+  for (let p = 0; p < n; p++) hist[g[p]]++;
+  const th = otsu(hist, n);
+  const mask = new Uint8Array(n);
+  let bright = 0;
+  for (let p = 0; p < n; p++) if (g[p] > th) { mask[p] = 1; bright++; }
+  // soglie basse come sopra: uno scontrino occupa meno dell'8% della foto,
+  // e con il vecchio 10% nemmeno questo ripiego poteva trovarlo
+  if (bright < n * 0.03 || bright > n * 0.985) return null;
+
+  const lab = new Int32Array(n).fill(-1);
+  const queue = new Int32Array(n);
+  let bestSize = 0, bestId = -1, id = 0;
+  for (let start = 0; start < n; start++) {
+    if (!mask[start] || lab[start] >= 0) continue;
+    let head = 0, tail = 0, size = 0;
+    queue[tail++] = start; lab[start] = id;
+    while (head < tail) {
+      const p = queue[head++]; size++;
+      const x = p % w, y = (p - x) / w;
+      if (x > 0 && mask[p - 1] && lab[p - 1] < 0) { lab[p - 1] = id; queue[tail++] = p - 1; }
+      if (x < w - 1 && mask[p + 1] && lab[p + 1] < 0) { lab[p + 1] = id; queue[tail++] = p + 1; }
+      if (y > 0 && mask[p - w] && lab[p - w] < 0) { lab[p - w] = id; queue[tail++] = p - w; }
+      if (y < h - 1 && mask[p + w] && lab[p + w] < 0) { lab[p + w] = id; queue[tail++] = p + w; }
+    }
+    if (size > bestSize) { bestSize = size; bestId = id; }
+    id++;
+  }
+  if (bestId < 0 || bestSize < n * 0.03) return null;
+
+  let tl = null, tr = null, br = null, bl = null;
+  let sMin = Infinity, sMax = -Infinity, dMin = Infinity, dMax = -Infinity;
+  for (let p = 0; p < n; p++) {
+    if (lab[p] !== bestId) continue;
+    const x = p % w, y = (p - x) / w;
+    const su = x + y, di = x - y;
+    if (su < sMin) { sMin = su; tl = [x, y]; }
+    if (su > sMax) { sMax = su; br = [x, y]; }
+    if (di > dMax) { dMax = di; tr = [x, y]; }
+    if (di < dMin) { dMin = di; bl = [x, y]; }
+  }
+  if (!tl || !tr || !br || !bl) return null;
+  const q = [tl, tr, br, bl];
+  // se la macchia riempie meno del 78% del suo quadrilatero è sbordata
+  const a = quadArea(q);
+  if (!(a > 0) || bestSize / a < 0.78) return null;
+  return q;
+}
+
+function detectQuad(canvas, workMax) {
+  const W = canvas.width, H = canvas.height;
+  const full = fullQuad(W, H);
+  try {
+    const s = Math.min(1, (workMax || 240) / Math.max(W, H));
+    const w = Math.max(48, Math.round(W * s)), h = Math.max(48, Math.round(H * s));
+    const g = grayFrame(canvas, w, h);
+    let q = quadByEdges(g, w, h);
+    if (!q) q = quadByBlob(g, w, h);
+    if (!q) return full;
+    const out = q.map(p => [clamp(p[0] / s, 0, W), clamp(p[1] / s, 0, H)]);
+    return validQuad(out, W, H) ? out : full;
+  } catch (e) {
+    return full;
+  }
+}
+
+/* ==========================================================================
+   5. Raddrizzamento prospettico
+   Mappa proiettiva quadrato unitario -> quadrilatero (Heckbert), percorsa
+   a rovescio con campionamento bilineare.
+   ========================================================================== */
+function squareToQuad(q) {
+  const [x0, y0] = q[0], [x1, y1] = q[1], [x2, y2] = q[2], [x3, y3] = q[3];
+  const sx = x0 - x1 + x2 - x3, sy = y0 - y1 + y2 - y3;
+  if (Math.abs(sx) < 1e-9 && Math.abs(sy) < 1e-9) {
+    return { a: x1 - x0, b: x2 - x1, c: x0, d: y1 - y0, e: y2 - y1, f: y0, g: 0, h: 0 };
+  }
+  const dx1 = x1 - x2, dy1 = y1 - y2, dx2 = x3 - x2, dy2 = y3 - y2;
+  const den = dx1 * dy2 - dy1 * dx2;
+  if (Math.abs(den) < 1e-9) {
+    return { a: x1 - x0, b: x2 - x1, c: x0, d: y1 - y0, e: y2 - y1, f: y0, g: 0, h: 0 };
+  }
+  const g = (sx * dy2 - sy * dx2) / den;
+  const h = (dx1 * sy - dy1 * sx) / den;
+  return {
+    a: x1 - x0 + g * x1, b: x3 - x0 + h * x3, c: x0,
+    d: y1 - y0 + g * y1, e: y3 - y0 + h * y3, f: y0, g, h
+  };
+}
+
+// Proporzioni vere del foglio a partire dalla sua proiezione.
+// Metodo di Zhang e He ("Whiteboard scanning and image enhancement"): dai
+// quattro vertici si ricava la focale imponendo che i lati del rettangolo
+// siano perpendicolari, e da quella il rapporto larghezza/altezza reale.
+// Misurare i lati nella foto, come facevo prima, dà proporzioni sbagliate
+// ogni volta che il foglio è ripreso di sbieco.
+function rectAspect(quad, W, H) {
+  const cx = W / 2, cy = H / 2;
+  const m1 = [quad[0][0] - cx, quad[0][1] - cy, 1];   // alto a sinistra
+  const m2 = [quad[1][0] - cx, quad[1][1] - cy, 1];   // alto a destra
+  const m3 = [quad[3][0] - cx, quad[3][1] - cy, 1];   // basso a sinistra
+  const m4 = [quad[2][0] - cx, quad[2][1] - cy, 1];   // basso a destra
+  const cr = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const dt = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const d2 = dt(cr(m2, m4), m3), d3 = dt(cr(m3, m4), m2);
+  if (!isFinite(d2) || !isFinite(d3) || Math.abs(d2) < 1e-9 || Math.abs(d3) < 1e-9) return null;
+  const c14 = cr(m1, m4);
+  const k2 = dt(c14, m3) / d2, k3 = dt(c14, m2) / d3;
+  const n2 = [k2 * m2[0] - m1[0], k2 * m2[1] - m1[1], k2 * m2[2] - m1[2]];
+  const n3 = [k3 * m3[0] - m1[0], k3 * m3[1] - m1[1], k3 * m3[2] - m1[2]];
+  const den = n2[2] * n3[2];
+  if (Math.abs(den) < 1e-7) {
+    // foglio praticamente parallelo al sensore: il rapporto è quello misurato
+    const a = n2[0] * n2[0] + n2[1] * n2[1], b = n3[0] * n3[0] + n3[1] * n3[1];
+    if (!(b > 1e-9)) return null;
+    const r0 = Math.sqrt(a / b);
+    return (r0 > 0.08 && r0 < 12) ? r0 : null;
+  }
+  const f2 = -(n2[0] * n3[0] + n2[1] * n3[1]) / den;
+  if (!(f2 > 1e-6)) return null;
+  const num = (n2[0] * n2[0] + n2[1] * n2[1]) / f2 + n2[2] * n2[2];
+  const dn = (n3[0] * n3[0] + n3[1] * n3[1]) / f2 + n3[2] * n3[2];
+  if (!(dn > 1e-12)) return null;
+  const r = Math.sqrt(num / dn);
+  // intervallo ampio: uno scontrino può essere lungo dieci volte la sua base
+  return (isFinite(r) && r > 0.08 && r < 12) ? r : null;
+}
+
+function warp(srcCanvas, quad, maxOut) {
+  const W = srcCanvas.width, H = srcCanvas.height;
+  const src = srcCanvas.getContext('2d').getImageData(0, 0, W, H);
+  const sd = src.data;
+  const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  let ow = Math.max(dist(quad[0], quad[1]), dist(quad[3], quad[2]));
+  let oh = Math.max(dist(quad[0], quad[3]), dist(quad[1], quad[2]));
+  // proporzioni corrette, tenendo l'area misurata per non perdere dettaglio
+  const ar0 = rectAspect(quad, W, H);
+  const meas = ow / Math.max(1, oh);
+  // se la stima prospettica è lontanissima dal rapporto misurato, i vertici
+  // sono imprecisi: meglio fidarsi della misura, che sbaglia di poco
+  const ar = (ar0 && ar0 / meas < 2.5 && meas / ar0 < 2.5) ? ar0 : null;
+  if (ar) {
+    const area = Math.max(1, ow * oh);
+    oh = Math.sqrt(area / ar);
+    ow = oh * ar;
+  }
+  const sc = Math.min(1, maxOut / Math.max(ow, oh));
+  ow = clamp(Math.round(ow * sc), 48, maxOut);
+  oh = clamp(Math.round(oh * sc), 48, maxOut);
+
+  const m = squareToQuad(quad);
+  const out = new ImageData(ow, oh);
+  const od = out.data;
+  const maxX = W - 1, maxY = H - 1;
+
+  for (let y = 0; y < oh; y++) {
+    const v = (y + 0.5) / oh;
+    const nxB = m.b * v + m.c, nyB = m.e * v + m.f, dB = m.h * v + 1;
+    let o = y * ow * 4;
+    for (let x = 0; x < ow; x++, o += 4) {
+      const u = (x + 0.5) / ow;
+      const den = m.g * u + dB;
+      const fx = clamp((m.a * u + nxB) / den, 0, maxX);
+      const fy = clamp((m.d * u + nyB) / den, 0, maxY);
+      const ix = fx | 0, iy = fy | 0;
+      const ax = fx - ix, ay = fy - iy;
+      const ix1 = ix < maxX ? ix + 1 : ix, iy1 = iy < maxY ? iy + 1 : iy;
+      const p00 = (iy * W + ix) * 4, p10 = (iy * W + ix1) * 4;
+      const p01 = (iy1 * W + ix) * 4, p11 = (iy1 * W + ix1) * 4;
+      const w00 = (1 - ax) * (1 - ay), w10 = ax * (1 - ay);
+      const w01 = (1 - ax) * ay, w11 = ax * ay;
+      od[o]     = sd[p00]     * w00 + sd[p10]     * w10 + sd[p01]     * w01 + sd[p11]     * w11;
+      od[o + 1] = sd[p00 + 1] * w00 + sd[p10 + 1] * w10 + sd[p01 + 1] * w01 + sd[p11 + 1] * w11;
+      od[o + 2] = sd[p00 + 2] * w00 + sd[p10 + 2] * w10 + sd[p01 + 2] * w01 + sd[p11 + 2] * w11;
+      od[o + 3] = 255;
+    }
+  }
+  return out;
+}
+
+/* ==========================================================================
+   6. Filtri documento
+   ========================================================================== */
+const FILTERS = [
+  { id: 'enhance', label: 'Migliora' },
+  { id: 'gray',    label: 'Grigio' },
+  { id: 'bw',      label: 'Bianco e nero' },
+  { id: 'original',label: 'Originale' }
+];
+
+function grayify(d) {
+  for (let i = 0; i < d.length; i += 4) {
+    const v = (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000;
+    d[i] = d[i + 1] = d[i + 2] = v;
+  }
+}
+
+// allarga l'istogramma canale per canale: sbianca la carta e toglie il giallo
+// delle luci al chiuso senza bruciare il testo
+function stretch(d, cut, gamma) {
+  const px = d.length / 4;
+  const h = [new Uint32Array(256), new Uint32Array(256), new Uint32Array(256)];
+  for (let i = 0; i < d.length; i += 4) { h[0][d[i]]++; h[1][d[i + 1]]++; h[2][d[i + 2]]++; }
+  const limit = px * cut;
+  const luts = [];
+  for (let ch = 0; ch < 3; ch++) {
+    let acc = 0, lo = 0, hi = 255;
+    for (let v = 0; v < 256; v++) { acc += h[ch][v]; if (acc > limit) { lo = v; break; } }
+    acc = 0;
+    for (let v = 255; v >= 0; v--) { acc += h[ch][v]; if (acc > limit) { hi = v; break; } }
+    if (hi - lo < 28) { lo = 0; hi = 255; }
+    const L = new Uint8ClampedArray(256);
+    const span = hi - lo;
+    for (let v = 0; v < 256; v++) {
+      L[v] = Math.round(Math.pow(clamp((v - lo) / span, 0, 1), gamma) * 255);
+    }
+    luts.push(L);
+  }
+  for (let i = 0; i < d.length; i += 4) {
+    d[i] = luts[0][d[i]]; d[i + 1] = luts[1][d[i + 1]]; d[i + 2] = luts[2][d[i + 2]];
+  }
+}
+
+// soglia adattiva alla Bradley: media locale su immagine integrale
+function binarize(id) {
+  const w = id.width, h = id.height, d = id.data;
+  const g = new Uint8Array(w * h);
+  for (let i = 0, p = 0; p < g.length; i += 4, p++) {
+    g[p] = (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000;
+  }
+  const iw = w + 1;
+  const sat = new Int32Array(iw * (h + 1));
+  for (let y = 0; y < h; y++) {
+    let row = 0;
+    for (let x = 0; x < w; x++) {
+      row += g[y * w + x];
+      sat[(y + 1) * iw + (x + 1)] = sat[y * iw + (x + 1)] + row;
+    }
+  }
+  const r = Math.max(8, Math.round(Math.min(w, h) / 20));
+  for (let y = 0; y < h; y++) {
+    const y0 = Math.max(0, y - r), y1 = Math.min(h - 1, y + r);
+    for (let x = 0; x < w; x++) {
+      const x0 = Math.max(0, x - r), x1 = Math.min(w - 1, x + r);
+      const count = (x1 - x0 + 1) * (y1 - y0 + 1);
+      const sum = sat[(y1 + 1) * iw + (x1 + 1)] - sat[y0 * iw + (x1 + 1)]
+                - sat[(y1 + 1) * iw + x0] + sat[y0 * iw + x0];
+      const p = y * w + x;
+      const v = g[p] * count < sum * 0.87 ? 0 : 255;
+      const i = p * 4;
+      d[i] = d[i + 1] = d[i + 2] = v;
+    }
+  }
+}
+
+// Maschera di contrasto leggera, applicata alla sola luminanza per non
+// creare aloni colorati: restituisce al testo la nitidezza che il
+// raddrizzamento, essendo un ricampionamento, inevitabilmente porta via.
+// La sfocatura di confronto è binomiale a cinque punti, [1 4 6 4 1]/16, non a
+// tre: il ricampionamento del raddrizzamento non porta via soltanto la
+// frequenza più alta, e una maschera a raggio 1 lavorerebbe quasi solo sul
+// rumore del JPEG invece che sui tratti delle lettere.
+function sharpen(id, amount) {
+  const w = id.width, h = id.height, d = id.data, n = w * h;
+  const lum = new Uint8ClampedArray(n), tmp = new Uint8ClampedArray(n);
+  for (let i = 0, p = 0; p < n; i += 4, p++) {
+    lum[p] = (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000;
+  }
+  const w1 = w - 1, h1 = h - 1;
+  for (let y = 0; y < h; y++) {
+    const row = y * w;
+    for (let x = 0; x < w; x++) {
+      const xa = x > 1 ? x - 2 : 0, xb = x > 0 ? x - 1 : 0;
+      const xd = x < w1 ? x + 1 : w1, xe = x < w1 - 1 ? x + 2 : w1;
+      tmp[row + x] = (lum[row + xa] + 4 * lum[row + xb] + 6 * lum[row + x]
+                    + 4 * lum[row + xd] + lum[row + xe]) / 16;
+    }
+  }
+  for (let y = 0; y < h; y++) {
+    const row = y * w;
+    const ra = (y > 1 ? y - 2 : 0) * w, rb = (y > 0 ? y - 1 : 0) * w;
+    const rd = (y < h1 ? y + 1 : h1) * w, re = (y < h1 - 1 ? y + 2 : h1) * w;
+    for (let x = 0; x < w; x++) {
+      const p = row + x;
+      const blur = (tmp[ra + x] + 4 * tmp[rb + x] + 6 * tmp[p]
+                  + 4 * tmp[rd + x] + tmp[re + x]) / 16;
+      const delta = (lum[p] - blur) * amount;
+      if (delta > -0.6 && delta < 0.6) continue;
+      const i = p * 4;
+      d[i] += delta; d[i + 1] += delta; d[i + 2] += delta;
+    }
+  }
+}
+
+function applyFilter(id, mode) {
+  if (mode === 'original') { sharpen(id, 0.4); return id; }
+  if (mode === 'bw') { sharpen(id, 0.45); binarize(id); return id; }
+  if (mode === 'gray') { grayify(id.data); stretch(id.data, 0.004, 0.95); sharpen(id, 0.6); return id; }
+  stretch(id.data, 0.005, 0.92);
+  sharpen(id, 0.6);
+  return id;
+}
+
+/* ==========================================================================
+   7. Generatore PDF (una pagina A4 per immagine, JPEG incorporato)
+   ========================================================================== */
+function buildPdf(pages) {
+  const chunks = [];
+  let len = 0;
+  const push = u => { chunks.push(u); len += u.length; };
+  const ascii = s => {
+    const u = new Uint8Array(s.length);
+    for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i) & 0xFF;
+    return u;
+  };
+  const f = n => (Math.round(n * 100) / 100).toString();
+  const N = pages.length;
+  const offs = [];
+
+  push(ascii('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n'));
+
+  offs[1] = len;
+  push(ascii('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n'));
+
+  const kids = [];
+  for (let i = 0; i < N; i++) kids.push((3 + i * 3) + ' 0 R');
+  offs[2] = len;
+  push(ascii('2 0 obj\n<< /Type /Pages /Count ' + N + ' /Kids [' + kids.join(' ') + '] >>\nendobj\n'));
+
+  for (let i = 0; i < N; i++) {
+    const p = pages[i];
+    // La pagina calza il contenuto: il rettangolo più grande con le
+    // proporzioni dell'immagine che sta dentro un A4. Un foglio A4 esce A4,
+    // uno scontrino esce scontrino invece di diventare una striscia in mezzo
+    // a una pagina vuota, e tutto resta stampabile su A4.
+    const land = p.jw > p.jh;
+    const lg = land ? p.jw : p.jh, sh = land ? p.jh : p.jw;
+    let LL = 841.89, SS = 841.89 * sh / lg;
+    if (SS > 595.28) { SS = 595.28; LL = 595.28 * lg / sh; }
+    const PW = land ? LL : SS, PH = land ? SS : LL;
+    const sc = Math.min(PW / p.jw, PH / p.jh);
+    const w = p.jw * sc, h = p.jh * sc;
+    const ox = (PW - w) / 2, oy = (PH - h) / 2;
+    const pn = 3 + i * 3, cn = 4 + i * 3, imn = 5 + i * 3;
+
+    offs[pn] = len;
+    push(ascii(pn + ' 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + f(PW) + ' ' + f(PH) +
+      '] /Resources << /XObject << /Im0 ' + imn + ' 0 R >> >> /Contents ' + cn + ' 0 R >>\nendobj\n'));
+
+    const content = 'q ' + f(w) + ' 0 0 ' + f(h) + ' ' + f(ox) + ' ' + f(oy) + ' cm /Im0 Do Q\n';
+    offs[cn] = len;
+    push(ascii(cn + ' 0 obj\n<< /Length ' + content.length + ' >>\nstream\n' + content + 'endstream\nendobj\n'));
+
+    offs[imn] = len;
+    push(ascii(imn + ' 0 obj\n<< /Type /XObject /Subtype /Image /Width ' + p.jw + ' /Height ' + p.jh +
+      ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + p.jpeg.length + ' >>\nstream\n'));
+    push(p.jpeg);
+    push(ascii('\nendstream\nendobj\n'));
+  }
+
+  const maxObj = 2 + N * 3;
+  const xref = len;
+  let x = 'xref\n0 ' + (maxObj + 1) + '\n0000000000 65535 f \n';
+  for (let n = 1; n <= maxObj; n++) {
+    x += String(offs[n]).padStart(10, '0') + ' 00000 n \n';
+  }
+  x += 'trailer\n<< /Size ' + (maxObj + 1) + ' /Root 1 0 R >>\nstartxref\n' + xref + '\n%%EOF\n';
+  push(ascii(x));
+
+  return new Blob(chunks, { type: 'application/pdf' });
+}
+
+/* ==========================================================================
+   8. Stato e icone
+   ========================================================================== */
+const state = { pages: [] };
+let seq = 0;
+
+const SVG = {
+  cam: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8.5h2.4L8 6h8l1.6 2.5H20a1 1 0 0 1 1 1V18a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.4"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  mail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.8" y="5" width="18.4" height="14" rx="2"/><path d="M3.2 6.4 12 13l8.8-6.6"/></svg>',
+  wa: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2.5a9.4 9.4 0 0 0-8.06 14.2L2.5 21.5l4.95-1.44A9.4 9.4 0 1 0 12.04 2.5zm0 1.73a7.67 7.67 0 0 1 0 15.34 7.6 7.6 0 0 1-3.9-1.07l-.28-.17-2.9.85.84-2.84-.18-.29a7.67 7.67 0 0 1 6.42-11.82zm-3.2 3.9c-.17 0-.44.06-.67.31-.23.25-.88.86-.88 2.1s.9 2.43 1.03 2.6c.13.17 1.75 2.8 4.26 3.8 2.08.83 2.5.67 2.96.63.45-.04 1.46-.6 1.67-1.18.2-.58.2-1.07.15-1.18-.06-.1-.23-.16-.48-.29-.25-.12-1.46-.72-1.69-.8-.22-.09-.39-.13-.55.12-.17.25-.63.8-.78.96-.14.17-.29.19-.54.07a6.6 6.6 0 0 1-1.94-1.2 7.3 7.3 0 0 1-1.35-1.67c-.14-.25-.02-.38.1-.5.13-.14.3-.36.44-.53.15-.17.2-.3.3-.48.1-.19.05-.35-.02-.48-.06-.12-.54-1.33-.74-1.82-.2-.47-.4-.4-.55-.4h-.45z"/></svg>'
+};
+
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+/* ==========================================================================
+   9. Pagine
+   ========================================================================== */
+function thumbOf(c) {
+  const s = Math.min(1, 340 / Math.max(c.width, c.height));
+  const t = el('canvas');
+  t.width = Math.max(1, Math.round(c.width * s));
+  t.height = Math.max(1, Math.round(c.height * s));
+  const g = t.getContext('2d');
+  g.imageSmoothingQuality = 'high';
+  g.drawImage(c, 0, 0, t.width, t.height);
+  return t.toDataURL('image/jpeg', 0.75);
+}
+
+async function processPage(page, srcCanvas) {
+  const src = srcCanvas || await canvasOf(page.srcBlob);
+  const id = warp(src, page.quad, outMax());
+  applyFilter(id, page.filter);
+  const c = el('canvas');
+  c.width = id.width; c.height = id.height;
+  c.getContext('2d').putImageData(id, 0, 0);
+  page.jw = c.width; page.jh = c.height;
+  page.jpeg = await canvasToBytes(c, jpegQ());
+  page.thumb = thumbOf(c);
+  if (page.url) { URL.revokeObjectURL(page.url); page.url = null; }
+}
+
+async function addFiles(files) {
+  const list = Array.from(files).filter(f => /^image\//.test(f.type) || /\.(jpe?g|png|webp|heic|heif)$/i.test(f.name));
+  if (!list.length) { toast('Scegli una foto del documento.'); return; }
+  for (let i = 0; i < list.length; i++) {
+    busy(list.length > 1 ? 'Pagina ' + (i + 1) + ' di ' + list.length + '…' : 'Cerco i bordi del foglio…');
+    await nextFrame();
+    try {
+      const bmp = await decodeFile(list[i]);
+      const src = toWorkCanvas(bmp, SRC_MAX);
+      const page = { id: ++seq, filter: 'enhance', srcW: src.width, srcH: src.height };
+      page.quad = detectQuad(src, 420);
+      page.srcBlob = await canvasToBlob(src, 'image/jpeg', 0.95);
+      await processPage(page, src);
+      state.pages.push(page);
+    } catch (e) {
+      toast('Questa immagine non si apre: riprova a scattarla.', 3600);
+    }
+  }
+  idle();
+  if (state.pages.length && !$('#fname').value.trim()) $('#fname').value = defaultName();
+  render();
+}
+
+async function reprocessAll() {
+  if (!state.pages.length) return;
+  for (let i = 0; i < state.pages.length; i++) {
+    busy('Aggiorno pagina ' + (i + 1) + ' di ' + state.pages.length + '…');
+    await nextFrame();
+    try { await processPage(state.pages[i]); } catch (e) {}
+  }
+  idle(); render();
+}
+
+function removePage(i) {
+  const p = state.pages[i];
+  if (p && p.url) URL.revokeObjectURL(p.url);
+  state.pages.splice(i, 1);
+  render();
+}
+
+function fullUrl(p) {
+  if (!p.url) p.url = URL.createObjectURL(new Blob([p.jpeg], { type: 'image/jpeg' }));
+  return p.url;
+}
+
+/* ==========================================================================
+   10. Schermata principale
+   ========================================================================== */
+function render() {
+  const main = $('#main');
+  main.textContent = '';
+  const n = state.pages.length;
+  $('#count').textContent = n ? (n === 1 ? '1 pagina' : n + ' pagine') : '';
+  $('#footer').hidden = n === 0;
+  renderSend();
+
+  if (!n) {
+    const w = el('div', 'empty');
+    const shutter = el('button', 'shutter');
+    shutter.innerHTML = SVG.cam;
+    shutter.setAttribute('aria-label', 'Apri il mirino');
+    const h = el('h2'); h.textContent = 'Tocca lo schermo';
+    const p = el('p'); p.textContent = 'Si apre il mirino. Appoggia il foglio su un piano, anche di sbieco: i bordi vengono segnati e raddrizzati allo scatto.';
+    const alt = el('button', 'alt'); alt.textContent = 'Scegli una foto già fatta';
+    alt.onclick = () => $('#filePick').click();
+    w.append(shutter, h, p, alt);
+    main.appendChild(w);
+    // basta sfiorare: il tocco vale su tutta l'area, non solo sull'otturatore.
+    // I pulsanti interni restano padroni del proprio tocco, così l'otturatore
+    // non apre il mirino due volte e la galleria resta la galleria.
+    main.onclick = e => { if (!e.target.closest('button.alt')) openCamera(); };
+    const press = on => w.classList.toggle('press', on);
+    main.onpointerdown = () => press(true);
+    main.onpointerup = () => press(false);
+    main.onpointercancel = () => press(false);
+    main.onpointerleave = () => press(false);
+    return;
+  }
+  main.onclick = null;
+  main.onpointerdown = null;
+  main.onpointerup = null;
+  main.onpointercancel = null;
+  main.onpointerleave = null;
+
+  const grid = el('div', 'sheets');
+  state.pages.forEach((p, i) => {
+    const b = el('button', 'sheet');
+    const img = el('img');
+    img.src = p.thumb; img.alt = 'Pagina ' + (i + 1);
+    const num = el('span', 'num'); num.textContent = i + 1;
+    b.append(img, num);
+    b.onclick = () => openPreview(i);
+    const kill = el('span', 'kill');
+    kill.innerHTML = SVG.x;
+    kill.setAttribute('role', 'button');
+    kill.setAttribute('aria-label', 'Elimina pagina ' + (i + 1));
+    kill.onclick = e => { e.stopPropagation(); removePage(i); };
+    b.appendChild(kill);
+    grid.appendChild(b);
+  });
+  const slot = el('button', 'slot');
+  slot.innerHTML = SVG.plus + '<span>Aggiungi pagina</span>';
+  slot.onclick = openCamera;
+  grid.appendChild(slot);
+  main.appendChild(grid);
+}
+
+function renderSend() {
+  const row = $('#sendrow');
+  row.textContent = '';
+  const who = S.contactName.trim();
+  const mail = { key: 'mail', label: 'Mail', glyph: SVG.mail,
+    sub: S.email ? (who ? 'a ' + who : S.email) : 'nessun indirizzo salvato' };
+  const wa = { key: 'wa', label: 'WhatsApp', glyph: SVG.wa,
+    sub: S.phone ? (who ? 'a ' + who : S.phone) : 'nessun numero salvato' };
+  const order = S.channel === 'wa' ? [wa, mail] : [mail, wa];
+  order.forEach((o, i) => {
+    const b = el('button', 'send ' + (i === 0 ? 'primary' : 'secondary'));
+    b.innerHTML = '<span class="glyph">' + o.glyph + '</span><span class="t"><b>' +
+      o.label + '</b><small>' + esc(o.sub) + '</small></span>';
+    b.onclick = () => send(o.key);
+    row.appendChild(b);
+  });
+}
+
+function stamp() {
+  const d = new Date(), p = n => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + '_' + p(d.getHours()) + p(d.getMinutes());
+}
+function defaultName() {
+  return (S.prefix.trim() || 'Scansione').replace(/[\\/:*?"<>|]+/g, '') + '_' + stamp();
+}
+function fileName() {
+  const v = $('#fname').value.trim().replace(/[\\/:*?"<>|]+/g, '').replace(/\.pdf$/i, '');
+  return (v || defaultName()) + '.pdf';
+}
+
+/* ==========================================================================
+   11. Anteprima pagina
+   ========================================================================== */
+let pvIndex = -1;
+function openPreview(i) {
+  const p = state.pages[i];
+  if (!p || !p.jpeg) { toast('Questa pagina è ancora in lavorazione.'); return; }
+  pvIndex = i;
+  $('#pvTitle').textContent = 'Pagina ' + (i + 1) + ' di ' + state.pages.length;
+  $('#pvImg').src = fullUrl(p);
+  $('#pvPrev').disabled = i === 0;
+  $('#pvNext').disabled = i === state.pages.length - 1;
+  $('#preview').hidden = false;
+}
+function closePreview() {
+  $('#preview').hidden = true;
+  $('#pvImg').removeAttribute('src');
+  pvIndex = -1;
+}
+function movePage(from, to) {
+  if (to < 0 || to >= state.pages.length) return;
+  const [p] = state.pages.splice(from, 1);
+  state.pages.splice(to, 0, p);
+  render();
+  openPreview(to);
+}
+
+/* ==========================================================================
+   12. Editor: ritaglio a quattro vertici, rotazione, filtro
+   ========================================================================== */
+const ed = { page: null, index: -1, src: null, quad: null, filter: 'enhance',
+  canvas: null, handles: [], scale: 1, ox: 0, oy: 0, dpr: 1, drag: -1, gx: 0, gy: 0, rotated: false };
+
+function buildChips() {
+  const box = $('#chips');
+  box.textContent = '';
+  FILTERS.forEach(f => {
+    const b = el('button', 'chip');
+    b.textContent = f.label;
+    b.setAttribute('aria-pressed', String(f.id === ed.filter));
+    b.onclick = () => {
+      ed.filter = f.id;
+      Array.from(box.children).forEach(c => c.setAttribute('aria-pressed', String(c === b)));
+    };
+    box.appendChild(b);
+  });
+}
+
+async function openEditor(index) {
+  const p = state.pages[index];
+  if (!p) return;
+  busy('Apro la pagina…');
+  await nextFrame();
+  try {
+    ed.src = await canvasOf(p.srcBlob);
+  } catch (e) { idle(); toast('Non riesco a riaprire questa pagina.'); return; }
+  ed.page = p; ed.index = index; ed.rotated = false;
+  ed.quad = p.quad.map(q => q.slice());
+  ed.filter = p.filter;
+  $('#edTitle').textContent = 'Pagina ' + (index + 1);
+  buildChips();
+  $('#editor').hidden = false;
+  idle();
+  requestAnimationFrame(layoutEditor);
+}
+
+function layoutEditor() {
+  const stage = $('#stage');
+  const r = stage.getBoundingClientRect();
+  if (!r.width || !ed.src) return;
+  const sw = ed.src.width, sh = ed.src.height;
+  const pad = 26;
+  ed.scale = Math.min((r.width - pad * 2) / sw, (r.height - pad * 2) / sh);
+  ed.dpr = Math.min(2, window.devicePixelRatio || 1);
+  const dw = sw * ed.scale, dh = sh * ed.scale;
+  ed.ox = (r.width - dw) / 2;
+  ed.oy = (r.height - dh) / 2;
+
+  if (!ed.canvas) { ed.canvas = el('canvas'); stage.appendChild(ed.canvas); }
+  const c = ed.canvas;
+  c.width = Math.round(dw * ed.dpr);
+  c.height = Math.round(dh * ed.dpr);
+  c.style.width = dw + 'px';
+  c.style.height = dh + 'px';
+  c.style.left = ed.ox + 'px';
+  c.style.top = ed.oy + 'px';
+
+  if (!ed.handles.length) {
+    for (let i = 0; i < 4; i++) {
+      const hn = el('div', 'handle');
+      stage.appendChild(hn);
+      ed.handles.push(hn);
+    }
+  }
+  drawEditor();
+  placeHandles();
+}
+
+function drawEditor() {
+  const c = ed.canvas;
+  if (!c || !ed.src) return;
+  const g = c.getContext('2d');
+  const k = ed.scale * ed.dpr;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.clearRect(0, 0, c.width, c.height);
+  g.imageSmoothingQuality = 'high';
+  g.drawImage(ed.src, 0, 0, c.width, c.height);
+
+  g.beginPath();
+  g.rect(0, 0, c.width, c.height);
+  g.moveTo(ed.quad[0][0] * k, ed.quad[0][1] * k);
+  for (let i = 1; i < 4; i++) g.lineTo(ed.quad[i][0] * k, ed.quad[i][1] * k);
+  g.closePath();
+  g.fillStyle = 'rgba(14,17,22,.64)';
+  g.fill('evenodd');
+
+  g.beginPath();
+  g.moveTo(ed.quad[0][0] * k, ed.quad[0][1] * k);
+  for (let i = 1; i < 4; i++) g.lineTo(ed.quad[i][0] * k, ed.quad[i][1] * k);
+  g.closePath();
+  g.lineWidth = Math.max(1.6, 2 * ed.dpr);
+  g.strokeStyle = '#F2C230';
+  g.stroke();
+}
+
+function placeHandles() {
+  for (let i = 0; i < 4; i++) {
+    ed.handles[i].style.left = (ed.ox + ed.quad[i][0] * ed.scale) + 'px';
+    ed.handles[i].style.top = (ed.oy + ed.quad[i][1] * ed.scale) + 'px';
+  }
+}
+
+function stageXY(e) {
+  const r = $('#stage').getBoundingClientRect();
+  return [(e.clientX - r.left - ed.ox) / ed.scale, (e.clientY - r.top - ed.oy) / ed.scale];
+}
+
+function initStageDrag() {
+  const stage = $('#stage');
+  stage.addEventListener('pointerdown', e => {
+    if (!ed.src) return;
+    const [x, y] = stageXY(e);
+    let best = -1, bd = Infinity;
+    for (let i = 0; i < 4; i++) {
+      const d = Math.hypot(ed.quad[i][0] - x, ed.quad[i][1] - y);
+      if (d < bd) { bd = d; best = i; }
+    }
+    if (bd * ed.scale > 52) return;
+    ed.drag = best;
+    ed.gx = ed.quad[best][0] - x;
+    ed.gy = ed.quad[best][1] - y;
+    ed.handles[best].classList.add('hot');
+    try { stage.setPointerCapture(e.pointerId); } catch (err) {}
+  });
+  stage.addEventListener('pointermove', e => {
+    if (ed.drag < 0) return;
+    e.preventDefault();
+    const [x, y] = stageXY(e);
+    ed.quad[ed.drag] = [
+      clamp(x + ed.gx, 0, ed.src.width),
+      clamp(y + ed.gy, 0, ed.src.height)
+    ];
+    drawEditor();
+    placeHandles();
+  }, { passive: false });
+  const stop = () => {
+    if (ed.drag >= 0) ed.handles[ed.drag].classList.remove('hot');
+    ed.drag = -1;
+  };
+  stage.addEventListener('pointerup', stop);
+  stage.addEventListener('pointercancel', stop);
+}
+
+function rotateEditor() {
+  const w = ed.src.width, h = ed.src.height;
+  const c = el('canvas');
+  c.width = h; c.height = w;
+  const g = c.getContext('2d');
+  g.translate(h, 0);
+  g.rotate(Math.PI / 2);
+  g.drawImage(ed.src, 0, 0);
+  ed.src = c;
+  const t = ed.quad.map(p => [clamp(h - p[1], 0, h), clamp(p[0], 0, w)]);
+  ed.quad = [t[3], t[0], t[1], t[2]];
+  ed.rotated = true;
+  layoutEditor();
+}
+
+function closeEditor() {
+  $('#editor').hidden = true;
+  ed.page = null; ed.index = -1; ed.drag = -1;
+}
+
+async function commitEditor() {
+  const p = ed.page, src = ed.src;
+  if (!p || !src) { closeEditor(); return; }
+  p.quad = ed.quad.map(q => q.slice());
+  p.filter = ed.filter;
+  const wasRotated = ed.rotated;
+  closeEditor();
+  busy('Raddrizzo la pagina…');
+  await nextFrame();
+  try {
+    if (wasRotated) {
+      p.srcBlob = await canvasToBlob(src, 'image/jpeg', 0.95);
+      p.srcW = src.width; p.srcH = src.height;
+    }
+    await processPage(p, src);
+  } catch (e) {
+    toast('Qualcosa è andato storto nell\'elaborazione.');
+  }
+  ed.src = null;
+  idle();
+  render();
+}
+
+/* ==========================================================================
+   12b. Mirino con riconoscimento dei bordi dal vivo
+   Lo scanner di Google Drive è un componente nativo di Android e non è
+   richiamabile da una pagina web: questo lo ricostruisce: fotogrammi dal
+   flusso della fotocamera, bordi cercati in continuo, scatto già ritagliato.
+   ========================================================================== */
+const cam = { stream: null, track: null, raf: 0, quad: null, work: null,
+  lastT: 0, shooting: false, torch: false, hintUntil: 0, miss: 0 };
+
+// Il riquadro va mediato nel tempo, altrimenti tremola a ogni fotogramma.
+// Su uno spostamento vero (il telefono si muove) si aggancia subito.
+function smoothQuad(prev, next, diag) {
+  if (!prev) return next.map(p => p.slice());
+  let far = 0;
+  for (let i = 0; i < 4; i++) {
+    far = Math.max(far, Math.hypot(prev[i][0] - next[i][0], prev[i][1] - next[i][1]));
+  }
+  if (far > 0.16 * diag) return next.map(p => p.slice());
+  const a = 0.25;
+  return prev.map((p, i) => [p[0] + (next[i][0] - p[0]) * a, p[1] + (next[i][1] - p[1]) * a]);
+}
+
+const camSupported = () => !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+
+function setHint(t, lockMs) {
+  $('#camHint').textContent = t;
+  if (lockMs) cam.hintUntil = performance.now() + lockMs;
+}
+
+function updateCamDone() {
+  const n = state.pages.length;
+  $('#camDone').textContent = n ? 'Fatto (' + n + ')' : 'Fatto';
+}
+
+// Con l'intera schermata sensibile al tocco è facile far partire due
+// aperture in rapida successione: una basta, e due flussi video no.
+let openingCamera = false;
+async function openCamera() {
+  if (openingCamera || cam.stream) return;
+  openingCamera = true;
+  try { await startCamera(); } finally { openingCamera = false; }
+}
+
+async function startCamera() {
+  if (!camSupported()) { $('#fileCam').click(); return; }
+  $('#camera').hidden = false;
+  updateCamDone();
+  setHint('Attivo la fotocamera…', 1200);
+  $('#camShoot').disabled = true;
+  try {
+    // si chiede il massimo che il telefono concede al video: più pixel qui
+    // vuol dire pagine più leggibili
+    cam.stream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 3840 }, height: { ideal: 2160 },
+        resizeMode: 'none'
+      }
+    });
+  } catch (e) {
+    $('#camera').hidden = true;
+    const denied = e && (e.name === 'NotAllowedError' || e.name === 'SecurityError');
+    toast(denied ? 'Permesso fotocamera negato: uso quella di sistema.'
+                 : 'Fotocamera non disponibile: uso quella di sistema.', 4600);
+    $('#fileCam').click();
+    return;
+  }
+  const v = $('#camVideo');
+  v.srcObject = cam.stream;
+  try { await v.play(); } catch (e) {}
+  cam.track = cam.stream.getVideoTracks()[0] || null;
+
+  let hasTorch = false;
+  try {
+    const caps = cam.track && cam.track.getCapabilities ? cam.track.getCapabilities() : {};
+    hasTorch = !!caps.torch;
+  } catch (e) {}
+  cam.torch = false;
+  $('#camTorch').hidden = !hasTorch;
+  $('#camTorch').textContent = 'Luce';
+
+  $('#camShoot').disabled = false;
+  cam.lastT = 0;
+  cam.miss = 0;
+  cam.quad = null;
+  setHint('Cerco il foglio…');
+  cancelAnimationFrame(cam.raf);
+  cam.raf = requestAnimationFrame(camLoop);
+}
+
+function closeCamera() {
+  cancelAnimationFrame(cam.raf);
+  cam.raf = 0;
+  if (cam.stream) cam.stream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+  cam.stream = null; cam.track = null; cam.quad = null; cam.shooting = false;
+  const v = $('#camVideo');
+  v.pause();
+  v.srcObject = null;
+  $('#camera').hidden = true;
+  render();
+}
+
+function camBox() {
+  const r = $('#camStage').getBoundingClientRect();
+  const v = $('#camVideo');
+  const vw = v.videoWidth || 1, vh = v.videoHeight || 1;
+  const sc = Math.min(r.width / vw, r.height / vh);
+  return { rw: r.width, rh: r.height, sc, left: (r.width - vw * sc) / 2, top: (r.height - vh * sc) / 2 };
+}
+
+function camLoop() {
+  cam.raf = requestAnimationFrame(camLoop);
+  const v = $('#camVideo');
+  if (!v.videoWidth || cam.shooting) return;
+  const now = performance.now();
+  if (now - cam.lastT < 140) return;
+  cam.lastT = now;
+
+  // 320 e non 240: uno scontrino è larga poca cosa, e a 240 px i suoi bordi
+  // lunghi avevano troppi pochi pixel per essere individuati con precisione
+  const s = Math.min(1, 320 / Math.max(v.videoWidth, v.videoHeight));
+  const w = Math.max(32, Math.round(v.videoWidth * s));
+  const h = Math.max(32, Math.round(v.videoHeight * s));
+  if (!cam.work) cam.work = el('canvas');
+  if (cam.work.width !== w || cam.work.height !== h) { cam.work.width = w; cam.work.height = h; }
+  try { cam.work.getContext('2d').drawImage(v, 0, 0, w, h); } catch (e) { return; }
+
+  const q = detectQuad(cam.work, 320);
+  if (quadArea(q) < 0.985 * w * h) {
+    const next = q.map(p => [p[0] / s, p[1] / s]);
+    cam.quad = smoothQuad(cam.quad, next, Math.hypot(v.videoWidth, v.videoHeight));
+    cam.miss = 0;
+  } else if (++cam.miss > 4) {
+    cam.quad = null;      // qualche fotogramma mancato non spegne il riquadro
+  }
+
+  if (now > cam.hintUntil) {
+    const msg = cam.quad ? 'Foglio rilevato: scatta quando vuoi'
+                         : 'Cerco il foglio: appoggialo su un piano più scuro';
+    if ($('#camHint').textContent !== msg) setHint(msg);
+  }
+  drawCamOverlay();
+}
+
+function drawCamOverlay() {
+  const c = $('#camOverlay');
+  const b = camBox();
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const W = Math.max(1, Math.round(b.rw * dpr)), H = Math.max(1, Math.round(b.rh * dpr));
+  if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+  const g = c.getContext('2d');
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.clearRect(0, 0, W, H);
+  if (!cam.quad) return;
+  const px = p => [(b.left + p[0] * b.sc) * dpr, (b.top + p[1] * b.sc) * dpr];
+  g.beginPath();
+  const p0 = px(cam.quad[0]);
+  g.moveTo(p0[0], p0[1]);
+  for (let i = 1; i < 4; i++) { const p = px(cam.quad[i]); g.lineTo(p[0], p[1]); }
+  g.closePath();
+  g.fillStyle = 'rgba(242,194,48,.13)';
+  g.fill();
+  g.lineWidth = Math.max(2, 2.4 * dpr);
+  g.strokeStyle = '#F2C230';
+  g.stroke();
+  g.fillStyle = '#F2C230';
+  for (let i = 0; i < 4; i++) {
+    const p = px(cam.quad[i]);
+    g.beginPath();
+    g.arc(p[0], p[1], 4.6 * dpr, 0, Math.PI * 2);
+    g.fill();
+  }
+}
+
+// Lo scatto fotografico pieno usa tutto il sensore invece dei pochi
+// megapixel del flusso video. Non tutti i telefoni lo offrono e qualcuno ci
+// mette troppo: in quel caso si ripiega sul fotogramma dell'anteprima.
+async function grabStill(v) {
+  if (!window.ImageCapture || !cam.track) return null;
+  try {
+    const ic = new ImageCapture(cam.track);
+    const blob = await Promise.race([
+      ic.takePhoto(),
+      new Promise((res, rej) => setTimeout(() => rej(new Error('troppo lento')), 3000))
+    ]);
+    if (!blob || !blob.size) return null;
+    const bmp = await decodeFile(blob);
+    const bw = bmp.width || bmp.naturalWidth || 0;
+    const bh = bmp.height || bmp.naturalHeight || 0;
+    if (Math.max(bw, bh) < Math.max(v.videoWidth, v.videoHeight) * 1.1) {
+      if (bmp.close) bmp.close();
+      return null;            // non guadagna niente: tanto vale il fotogramma
+    }
+    return bmp;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function shoot() {
+  const v = $('#camVideo');
+  if (!v.videoWidth || cam.shooting) return;
+  cam.shooting = true;
+  $('#camShoot').disabled = true;
+  const fl = $('#camFlash');
+  fl.classList.remove('on');
+  void fl.offsetWidth;
+  fl.classList.add('on');
+  setHint('Scatto…', 60000);
+  await nextFrame();
+  try {
+    const vw = v.videoWidth, vh = v.videoHeight;
+    const liveQuad = cam.quad ? cam.quad.map(p => p.slice()) : null;
+
+    const bmp = await grabStill(v);
+    let c;
+    if (bmp) {
+      c = toWorkCanvas(bmp, SRC_MAX);
+    } else {
+      const sc = Math.min(1, SRC_MAX / Math.max(vw, vh));
+      c = el('canvas');
+      c.width = Math.max(1, Math.round(vw * sc));
+      c.height = Math.max(1, Math.round(vh * sc));
+      c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+    }
+
+    setHint('Raddrizzo la pagina…', 60000);
+    await nextFrame();
+
+    // sulla foto ferma si rileva di nuovo, con più pixel e quindi più
+    // precisione; se però il risultato contraddice quello che hai visto nel
+    // mirino, vince il mirino, perché è su quello che hai deciso di scattare
+    const detected = detectQuad(c, 420);
+    const detOk = quadArea(detected) < 0.985 * c.width * c.height;
+    let mapped = null;
+    if (liveQuad) {
+      const arLive = vw / vh, arSrc = c.width / c.height;
+      if (Math.abs(arLive - arSrc) / arSrc < 0.04) {
+        mapped = liveQuad.map(p => [
+          clamp(p[0] / vw * c.width, 0, c.width),
+          clamp(p[1] / vh * c.height, 0, c.height)
+        ]);
+      }
+    }
+    let q;
+    if (detOk && mapped) {
+      const diag = Math.hypot(c.width, c.height);
+      let far = 0;
+      for (let i = 0; i < 4; i++) {
+        far = Math.max(far, Math.hypot(detected[i][0] - mapped[i][0], detected[i][1] - mapped[i][1]));
+      }
+      q = far < 0.08 * diag ? detected : mapped;
+    } else {
+      q = detOk ? detected : (mapped || fullQuad(c.width, c.height));
+    }
+
+    const page = { id: ++seq, filter: 'enhance', srcW: c.width, srcH: c.height, quad: q };
+    page.srcBlob = await canvasToBlob(c, 'image/jpeg', 0.95);
+    await processPage(page, c);
+    state.pages.push(page);
+    if (!$('#fname').value.trim()) $('#fname').value = defaultName();
+    render();
+    updateCamDone();
+    setHint('Pagina ' + state.pages.length + ' acquisita. Inquadra la prossima o tocca Fatto', 2800);
+  } catch (e) {
+    setHint('Scatto non riuscito: riprova', 2200);
+  }
+  $('#camShoot').disabled = false;
+  cam.shooting = false;
+}
+
+async function toggleTorch() {
+  if (!cam.track) return;
+  const want = !cam.torch;
+  try {
+    await cam.track.applyConstraints({ advanced: [{ torch: want }] });
+    cam.torch = want;
+    $('#camTorch').textContent = want ? 'Luce accesa' : 'Luce';
+  } catch (e) {
+    toast('Su questo telefono la luce non si comanda dal browser.', 3600);
+  }
+}
+
+/* ==========================================================================
+   13. Invio
+   ========================================================================== */
+function waNumber(raw) {
+  let d = String(raw || '').replace(/\D/g, '');
+  if (d.length >= 9 && d.length <= 10 && d.indexOf('39') !== 0) d = '39' + d;
+  return d;
+}
+
+function copyText(t) {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(t).catch(() => {});
+      return;
+    }
+  } catch (e) {}
+  try {
+    const a = el('textarea');
+    a.value = t;
+    a.style.position = 'fixed';
+    a.style.opacity = '0';
+    document.body.appendChild(a);
+    a.select();
+    document.execCommand('copy');
+    document.body.removeChild(a);
+  } catch (e) {}
+}
+
+function download(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = el('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 15000);
+}
+
+function openApp(kind, recipient, name) {
+  const body = 'In allegato il documento ' + name + '.';
+  if (kind === 'mail') {
+    const q = '?subject=' + encodeURIComponent(S.subject || name) +
+      '&body=' + encodeURIComponent(body + '\n\nAllega il PDF appena salvato.');
+    location.href = 'mailto:' + (recipient || '') + q;
+  } else {
+    location.href = 'https://wa.me/' + waNumber(recipient) + '?text=' + encodeURIComponent(body);
+  }
+}
+
+function send(kind) {
+  if (!state.pages.length) return;
+  if (state.pages.some(p => !p.jpeg)) { toast('Una pagina è ancora in lavorazione.'); return; }
+  const name = fileName();
+  const recipient = kind === 'mail' ? S.email.trim() : S.phone.trim();
+  let blob;
+  try {
+    blob = buildPdf(state.pages);
+  } catch (e) {
+    toast('Non riesco a comporre il PDF.'); return;
+  }
+
+  let file = null;
+  try { file = new File([blob], name, { type: 'application/pdf' }); } catch (e) {}
+
+  const canFiles = !!(file && navigator.canShare && navigator.share && navigator.canShare({ files: [file] }));
+  if (canFiles) {
+    if (S.copyRecipient && recipient) copyText(kind === 'mail' ? recipient : waNumber(recipient));
+    navigator.share({
+      files: [file],
+      title: kind === 'mail' ? (S.subject || name) : name,
+      text: 'In allegato il documento ' + name + '.'
+    }).then(() => {
+      if (S.copyRecipient && recipient) {
+        toast(kind === 'mail'
+          ? 'Indirizzo copiato: incollalo nel campo A.'
+          : 'Numero copiato, se ti serve per cercare il contatto.', 4500);
+      }
+    }).catch(err => {
+      if (err && err.name === 'AbortError') return;
+      download(blob, name);
+      toast('PDF salvato nel telefono: allegalo a mano.', 5000);
+    });
+    return;
+  }
+
+  download(blob, name);
+  toast('PDF salvato. Ora allegalo nell\'app che si apre.', 5200);
+  setTimeout(() => openApp(kind, recipient, name), 900);
+}
+
+/* ==========================================================================
+   14. Impostazioni
+   ========================================================================== */
+function openSettings() {
+  $('#stName').value = S.contactName;
+  $('#stMail').value = S.email;
+  $('#stPhone').value = S.phone;
+  $('#stSubject').value = S.subject;
+  $('#stPrefix').value = S.prefix;
+  $('#stCopy').checked = !!S.copyRecipient;
+  $('#stQuality').value = S.level;
+  Array.from($('#stChannel').children).forEach(b => {
+    b.setAttribute('aria-pressed', String(b.dataset.ch === S.channel));
+  });
+  $('#settings').hidden = false;
+}
+
+async function saveFromForm() {
+  const mail = $('#stMail').value.trim();
+  if (mail && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(mail)) {
+    toast('Controlla l\'indirizzo mail.'); return;
+  }
+  const oldLevel = S.level;
+  S.contactName = $('#stName').value.trim();
+  S.email = mail;
+  S.phone = $('#stPhone').value.trim();
+  S.subject = $('#stSubject').value.trim() || defaults.subject;
+  S.prefix = $('#stPrefix').value.trim() || defaults.prefix;
+  S.copyRecipient = $('#stCopy').checked;
+  S.level = LEVELS[$('#stQuality').value] ? $('#stQuality').value : defaults.level;
+  const pressed = Array.from($('#stChannel').children).find(b => b.getAttribute('aria-pressed') === 'true');
+  S.channel = pressed ? pressed.dataset.ch : 'mail';
+  saveSettings();
+  $('#settings').hidden = true;
+  renderSend();
+  toast('Impostazioni salvate.');
+  if (S.level !== oldLevel) await reprocessAll();
+}
+
+/* ==========================================================================
+   15. Collegamenti
+   ========================================================================== */
+$('#btnSettings').onclick = openSettings;
+$('#stClose').onclick = () => { $('#settings').hidden = true; };
+$('#stSave').onclick = saveFromForm;
+$('#stChannel').onclick = e => {
+  const b = e.target.closest('button[data-ch]');
+  if (!b) return;
+  Array.from($('#stChannel').children).forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+};
+
+// la FileList è viva: va copiata PRIMA di azzerare il campo, altrimenti si svuota
+function onPicked(e) {
+  const files = Array.prototype.slice.call(e.target.files || []);
+  e.target.value = '';
+  if (files.length) addFiles(files);
+}
+$('#fileCam').onchange = onPicked;
+$('#filePick').onchange = onPicked;
+
+$('#btnSave').onclick = () => {
+  if (!state.pages.length) return;
+  if (state.pages.some(p => !p.jpeg)) { toast('Una pagina è ancora in lavorazione.'); return; }
+  try { download(buildPdf(state.pages), fileName()); toast('PDF salvato nei download.'); }
+  catch (e) { toast('Non riesco a comporre il PDF.'); }
+};
+
+$('#camClose').onclick = closeCamera;
+$('#camDone').onclick = closeCamera;
+$('#camShoot').onclick = shoot;
+$('#camTorch').onclick = toggleTorch;
+$('#camGallery').onclick = () => { closeCamera(); $('#filePick').click(); };
+$('#camVideo').addEventListener('loadedmetadata', drawCamOverlay);
+
+$('#edCancel').onclick = () => { ed.src = null; closeEditor(); };
+$('#edDone').onclick = commitEditor;
+$('#edRotate').onclick = rotateEditor;
+$('#edAll').onclick = () => { ed.quad = fullQuad(ed.src.width, ed.src.height); drawEditor(); placeHandles(); };
+$('#edAuto').onclick = () => { ed.quad = detectQuad(ed.src, 420); drawEditor(); placeHandles(); };
+
+$('#pvClose').onclick = closePreview;
+$('#pvEdit').onclick = () => { const i = pvIndex; closePreview(); openEditor(i); };
+$('#pvPrev').onclick = () => movePage(pvIndex, pvIndex - 1);
+$('#pvNext').onclick = () => movePage(pvIndex, pvIndex + 1);
+$('#pvDel').onclick = () => { const i = pvIndex; closePreview(); removePage(i); };
+
+window.addEventListener('resize', () => {
+  if (!$('#editor').hidden) layoutEditor();
+  if (!$('#camera').hidden) drawCamOverlay();
+});
+window.addEventListener('orientationchange', () => setTimeout(() => {
+  if (!$('#editor').hidden) layoutEditor();
+  if (!$('#camera').hidden) drawCamOverlay();
+}, 260));
+
+// se l'app va in secondo piano la fotocamera va spenta: niente spia accesa
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && cam.stream) closeCamera();
+});
+
+window.addEventListener('beforeunload', e => {
+  if (state.pages.length) { e.preventDefault(); e.returnValue = ''; }
+});
+
+initStageDrag();
+render();
+
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+if (!window.isSecureContext) {
+  toast('Apri l\'app da un indirizzo https: altrimenti il telefono blocca fotocamera e invio.', 7000);
+}
+</script>
+</body>
+</html>
